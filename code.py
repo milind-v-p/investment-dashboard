@@ -73,7 +73,9 @@ if data is not None:
     income = st.number_input("Enter your monthly income ($)", min_value=0.0, step=100.0)
     monthly_investment = st.number_input("Amount willing to invest monthly ($)", min_value=0.0, step=100.0)
     age = st.slider("Enter your age", 18, 100)
-    horizon = st.slider("Investment horizon (years)", 1, 50)
+    retirement_age = 65
+    horizon = max(retirement_age - age, 1)  # Adjust horizon based on retirement age
+    st.write(f"Your investment horizon is automatically set to {horizon} years (until age {retirement_age}).")
     risk_tolerance = st.selectbox("Risk Tolerance", ["Low", "Moderate", "High"])
 
     # Assign weights
@@ -94,14 +96,18 @@ if data is not None:
     else:
         # Filter based on risk tolerance
         if risk_tolerance == "High":
-            selected_tickers = sorted(metrics.items(), key=lambda x: x[1]['mean_return'], reverse=True)[:3]
+            selected_tickers = sorted(metrics.items(), key=lambda x: x[1]['mean_return'], reverse=True)
         elif risk_tolerance == "Moderate":
-            selected_tickers = sorted(metrics.items(), key=lambda x: x[1]['volatility'])[:3]
+            selected_tickers = sorted(metrics.items(), key=lambda x: x[1]['volatility'])
         else:  # Low risk
-            selected_tickers = sorted(metrics.items(), key=lambda x: x[1]['volatility'])[:2]
+            selected_tickers = sorted(metrics.items(), key=lambda x: x[1]['volatility'])
 
-        stock_picks = [ticker for ticker, _ in selected_tickers[:3]]
-        bond_picks = [ticker for ticker, _ in selected_tickers[-2:]]
+        stock_picks = [ticker for ticker, _ in selected_tickers if ticker != "SPY"][:2] + ["SPY"]  # Include SPY as a stock
+        bond_picks = [ticker for ticker, _ in selected_tickers if ticker not in stock_picks][:2]  # Select bonds not in stocks
+
+        # Ensure exactly 3 stocks and 2 bonds
+        stock_picks = stock_picks[:3]
+        bond_picks = bond_picks[:2]
 
         # Display top recommendations
         st.subheader("Top Recommendations")
@@ -119,6 +125,8 @@ if data is not None:
                 horizon,
             ))
 
+        total_invested = monthly_investment * 12 * horizon
+        st.write(f"Total Amount Invested Over {horizon} Years: ${total_invested:,.2f}")
         st.write(f"Simulated Portfolio Value after {horizon} years:")
         st.write(f"Mean: ${np.mean(total_simulations):,.2f}")
         st.write(f"5th Percentile: ${np.percentile(total_simulations, 5):,.2f}")
