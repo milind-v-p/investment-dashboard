@@ -59,7 +59,7 @@ def monte_carlo_simulation(mean_return, volatility, initial_investment, time_hor
 st.title("Investment Portfolio Decision Support System")
 
 # Load data
-file_path = 'financial_data_last_year.csv'  # Ensure this matches your uploaded file
+file_path = '/Users/milindsm2pro/Sem\ 2/Common\ Project/financial_data_last_year.csv'  # Ensure this matches your uploaded file
 try:
     data = load_data(file_path)
 except FileNotFoundError as e:
