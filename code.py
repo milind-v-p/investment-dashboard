@@ -23,7 +23,6 @@ def extract_metrics(data, tickers):
             metrics[ticker] = {
                 "mean_return": mean_return,
                 "volatility": volatility,
-                "daily_returns": daily_returns,
                 "sharpe_ratio": mean_return / volatility if volatility > 0 else 0,
             }
         except KeyError:
@@ -32,27 +31,16 @@ def extract_metrics(data, tickers):
 
 # Utility functions
 def calculate_portfolio_metrics(selected_assets, weights):
-    # Extract daily returns for the selected assets
-    daily_returns = np.array([asset["daily_returns"] for asset in selected_assets]).T
-    mean_returns = np.array([asset["mean_return"] for asset in selected_assets])
-
-    # Compute the covariance matrix of daily returns
-    covariance_matrix = np.cov(daily_returns, rowvar=False)
-
-    # Portfolio mean as weighted average of individual means
+    mean_returns = [asset["mean_return"] for asset in selected_assets]
+    volatilities = [asset["volatility"]**2 for asset in selected_assets]
     portfolio_mean_daily = np.dot(weights, mean_returns)
-
-    # Portfolio volatility considering covariance
-    portfolio_volatility_daily = np.sqrt(np.dot(weights.T, np.dot(covariance_matrix, weights)))
-
-    # Convert daily metrics to monthly
-    portfolio_mean_monthly = portfolio_mean_daily * 21  # Approx. 21 trading days per month
-    portfolio_volatility_monthly = portfolio_volatility_daily * np.sqrt(21)
-
+    portfolio_volatility_daily = np.sqrt(np.dot(weights, volatilities))
+    portfolio_mean_monthly = portfolio_mean_daily * 21  # Convert daily mean return to monthly
+    portfolio_volatility_monthly = portfolio_volatility_daily * np.sqrt(21)  # Convert daily volatility to monthly
     return portfolio_mean_monthly, portfolio_volatility_monthly
 
 # Monte Carlo Simulation using Geometric Brownian Motion (GBM)
-def monte_carlo_simulation_gbm(mu, sigma, monthly_investment, time_horizon, num_simulations=10000):
+def monte_carlo_simulation_gbm(mu, sigma, monthly_investment, time_horizon, num_simulations=1000):
     dt = 1 / 12  # Monthly steps
     results = []
     for _ in range(num_simulations):
@@ -114,26 +102,20 @@ if data is not None:
 
     # Default stock-bond allocation based on risk tolerance
     if risk_tolerance == "Low":
-        stock_weight_default = 0.6
-        bond_weight_default = 0.4
+        default_stock_weight = 0.6
+        default_bond_weight = 0.4
     elif risk_tolerance == "Moderate":
-        stock_weight_default = 0.7
-        bond_weight_default = 0.3
+        default_stock_weight = 0.7
+        default_bond_weight = 0.3
     else:
-        stock_weight_default = 0.8
-        bond_weight_default = 0.2
+        default_stock_weight = 0.8
+        default_bond_weight = 0.2
 
-    st.write("### Default Allocation")
-    st.write(f"**Stocks Allocation (%):** {stock_weight_default * 100:.2f}%")
-    st.write(f"**Bonds Allocation (%):** {bond_weight_default * 100:.2f}%")
-
-    # Allow user to adjust allocation
-    st.write("### Adjust Allocation")
-    stock_weight = st.slider("Stocks Allocation (%)", 0.0, 100.0, stock_weight_default * 100.0) / 100.0
+    # Allow user to adjust stock-bond allocation
+    st.subheader("Portfolio Allocation")
+    stock_weight = st.slider("Stock Allocation (%)", min_value=0, max_value=100, value=int(default_stock_weight * 100)) / 100
     bond_weight = 1 - stock_weight
-
-    st.write(f"**Adjusted Stocks Allocation (%):** {stock_weight * 100:.2f}%")
-    st.write(f"**Adjusted Bonds Allocation (%):** {bond_weight * 100:.2f}%")
+    st.write(f"Adjusted Allocation: Stocks {stock_weight * 100:.2f}%, Bonds {bond_weight * 100:.2f}%")
 
     # Extract tickers dynamically from the dataset
     tickers = list(set([col.split(".")[0] for col in data.columns if "." in col]))
@@ -174,6 +156,8 @@ if data is not None:
         total_invested = monthly_investment * 12 * horizon
 
         st.write(f"Total Amount Invested Over {horizon} Years: ${total_invested:,.2f}")
+        st.write(f"Simulated Portfolio Value after {horizon} years:")
+        st.write(f"Mean: ${np.mean(simulations):,.2f}")
         st.write(f"5th Percentile: ${np.percentile(simulations, 5):,.2f}")
         st.write(f"95th Percentile: ${np.percentile(simulations, 95):,.2f}")
 
@@ -184,9 +168,3 @@ if data is not None:
         ax.set_xlabel("Portfolio Value ($)")
         ax.set_ylabel("Frequency")
         st.pyplot(fig)
-
-        # Display portfolio allocation dynamically
-        st.subheader("Portfolio Allocation")
-        total_allocation = len(stock_picks) + len(bond_picks)
-        st.write(f"**Stocks Allocation (%):** {stock_weight * 100:.2f}%")
-        st.write(f"**Bonds Allocation (%):** {bond_weight * 100:.2f}%")
