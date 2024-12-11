@@ -44,15 +44,15 @@ def horizon_utility(horizon, weight, preference):
     factor = 1.2 if preference == "High" else 1.0 if preference == "Moderate" else 0.8
     return horizon * weight * factor
 
-# Monte Carlo Simulation
-# Simulate each monthly investment separately and aggregate results
-def monte_carlo_simulation(mean_return, volatility, monthly_investment, time_horizon, num_simulations=1000):
+# Monte Carlo Simulation using Geometric Brownian Motion (GBM)
+def monte_carlo_simulation_gbm(mean_return, volatility, monthly_investment, time_horizon, num_simulations=1000):
     results = []
+    dt = 1 / 12  # Time step for monthly compounding
     for _ in range(num_simulations):
         portfolio_value = 0
         for month in range(time_horizon * 12):
             annual_return = np.random.normal(mean_return, volatility)
-            monthly_return = annual_return / 12
+            monthly_return = np.exp((mean_return - 0.5 * volatility**2) * dt + volatility * np.sqrt(dt) * np.random.normal()) - 1
             portfolio_value += monthly_investment
             portfolio_value *= (1 + monthly_return)
         results.append(portfolio_value)
@@ -117,12 +117,12 @@ if data is not None:
         st.write(f"**Selected Stocks:** {', '.join([stock[0] for stock in stock_picks])}")
         st.write(f"**Selected Bonds:** {', '.join([bond[0] for bond in bond_picks])}")
 
-        # Monte Carlo simulation for the portfolio
+        # Monte Carlo simulation for the portfolio using GBM
         st.subheader("Monte Carlo Simulation for Portfolio")
         progress = st.progress(0)
         portfolio_simulations = []
         for i, (ticker, metric) in enumerate(stock_picks + bond_picks):
-            simulations = monte_carlo_simulation(
+            simulations = monte_carlo_simulation_gbm(
                 metric["mean_return"],
                 metric["volatility"],
                 monthly_investment / len(stock_picks + bond_picks),
