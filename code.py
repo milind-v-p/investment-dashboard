@@ -29,20 +29,26 @@ def extract_metrics(data, tickers):
             st.warning(f"Data for {ticker} is missing. Skipping.")
     return metrics
 
-# Calculate utility scores
+# Calculate optimized utility scores
 def calculate_utility_scores(metrics, risk_tolerance):
     utility_scores = {}
     for ticker, metric in metrics.items():
         mean_return = metric["mean_return"]
         volatility = metric["volatility"]
 
+        # Weight adjustments based on risk tolerance
         if risk_tolerance == "Low":
-            score = mean_return / (1 + volatility)
+            return_weight = 0.4
+            volatility_weight = 0.6
         elif risk_tolerance == "Moderate":
-            score = mean_return - 0.5 * volatility
+            return_weight = 0.6
+            volatility_weight = 0.4
         else:  # High risk tolerance
-            score = mean_return
+            return_weight = 0.8
+            volatility_weight = 0.2
 
+        # Optimized utility function
+        score = (return_weight * mean_return) - (volatility_weight * volatility)
         utility_scores[ticker] = score
     return utility_scores
 
@@ -143,13 +149,13 @@ if data is not None:
     if not metrics:
         st.error("No valid metrics available for analysis. Check your dataset.")
     else:
-        # Calculate utility scores for all investments
+        # Calculate optimized utility scores for all investments
         utility_scores = calculate_utility_scores(metrics, risk_tolerance)
         all_investments = pd.DataFrame.from_dict(metrics, orient='index')
         all_investments['utility_score'] = all_investments.index.map(utility_scores)
 
         # Visualize all stocks and bonds with utility scores
-        st.subheader("All Available Investments with Utility Scores")
+        st.subheader("All Available Investments with Optimized Utility Scores")
         st.dataframe(all_investments)
 
         # Optimize portfolio
@@ -172,7 +178,7 @@ if data is not None:
         # Display portfolio metrics
         st.subheader("Portfolio Metrics")
         st.write(f"**Portfolio Mean (mu) (Monthly):** {portfolio_mu:.6f}")
-        st.write(f"**Portfolio Volatility (sigma) (Monthly):** {portfolio_sigma:.6f}")
+        st.write(f"**Portfolio Volatility (sigma) (Monthly):** {portfolio_sigma:.6
 
         # Monte Carlo simulation
         st.subheader("Monte Carlo Simulation for Portfolio")
