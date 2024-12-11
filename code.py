@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+import time
 
 # Load dataset
 def load_data(file_path):
@@ -118,15 +119,21 @@ if data is not None:
         # Monte Carlo simulation for the portfolio
         st.subheader("Monte Carlo Simulation for Portfolio")
         total_simulations = []
-        for ticker, metric in stock_picks + bond_picks:
-            total_simulations.extend(monte_carlo_simulation(
+        progress = st.progress(0)
+        total_invested = 0
+
+        for i, (ticker, metric) in enumerate(stock_picks + bond_picks):
+            progress.progress(int((i + 1) / len(stock_picks + bond_picks) * 100))
+            simulations = monte_carlo_simulation(
                 metric["mean_return"],
                 metric["volatility"],
                 monthly_investment / len(stock_picks + bond_picks),
                 horizon,
-            ))
+            )
+            total_simulations.extend(simulations)
+            total_invested += monthly_investment * 12 * horizon / len(stock_picks + bond_picks)
+            time.sleep(0.1)  # Simulate computation delay
 
-        total_invested = monthly_investment * 12 * horizon
         st.write(f"Total Amount Invested Over {horizon} Years: ${total_invested:,.2f}")
         st.write(f"Simulated Portfolio Value after {horizon} years:")
         st.write(f"Mean: ${np.mean(total_simulations):,.2f}")
