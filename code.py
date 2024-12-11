@@ -33,9 +33,11 @@ def extract_metrics(data, tickers):
 def calculate_portfolio_metrics(selected_assets, weights):
     mean_returns = [asset["mean_return"] for asset in selected_assets]
     volatilities = [asset["volatility"]**2 for asset in selected_assets]
-    portfolio_mean = np.dot(weights, mean_returns)
-    portfolio_volatility = np.sqrt(np.dot(weights, volatilities))
-    return portfolio_mean, portfolio_volatility
+    portfolio_mean_daily = np.dot(weights, mean_returns)
+    portfolio_volatility_daily = np.sqrt(np.dot(weights, volatilities))
+    portfolio_mean_monthly = portfolio_mean_daily * 21  # Convert daily mean return to monthly
+    portfolio_volatility_monthly = portfolio_volatility_daily * np.sqrt(21)  # Convert daily volatility to monthly
+    return portfolio_mean_monthly, portfolio_volatility_monthly
 
 # Monte Carlo Simulation using Geometric Brownian Motion (GBM)
 def monte_carlo_simulation_gbm(mu, sigma, monthly_investment, time_horizon, num_simulations=1000):
@@ -133,8 +135,8 @@ if data is not None:
 
         # Display portfolio metrics
         st.subheader("Portfolio Metrics")
-        st.write(f"**Portfolio Mean (mu):** {portfolio_mu:.6f}")
-        st.write(f"**Portfolio Volatility (sigma):** {portfolio_sigma:.6f}")
+        st.write(f"**Portfolio Mean (mu) (Monthly):** {portfolio_mu:.6f}")
+        st.write(f"**Portfolio Volatility (sigma) (Monthly):** {portfolio_sigma:.6f}")
 
         # Monte Carlo simulation
         st.subheader("Monte Carlo Simulation for Portfolio")
