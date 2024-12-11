@@ -29,30 +29,28 @@ def extract_metrics(data, tickers):
     return metrics
 
 # Utility functions
-def calculate_utility(metrics, weights, risk_tolerance):
-    factor = 1.5 if risk_tolerance == "High" else 1.0 if risk_tolerance == "Moderate" else 0.8
-    return (
-        metrics["mean_return"] * weights["return"] * factor
-        - metrics["volatility"] * weights["risk"] * (1 / factor)
-    )
+def calculate_portfolio_metrics(selected_assets):
+    mean_returns = [asset["mean_return"] for asset in selected_assets]
+    volatilities = [asset["volatility"]**2 for asset in selected_assets]
+    portfolio_mean = np.mean(mean_returns)
+    portfolio_volatility = np.sqrt(np.mean(volatilities))
+    return portfolio_mean, portfolio_volatility
 
-# Monte Carlo Simulation with Geometric Brownian Motion
-def monte_carlo_simulation_gbm(mean_return, volatility, monthly_investment, time_horizon, num_simulations=1000):
+# Monte Carlo Simulation using Geometric Brownian Motion (GBM)
+def monte_carlo_simulation_gbm(mu, sigma, monthly_investment, time_horizon, num_simulations=1000):
     dt = 1 / 12  # Monthly steps
     results = []
     for _ in range(num_simulations):
         portfolio_value = 0
         for month in range(time_horizon * 12):
-            monthly_return = np.exp(
-                (mean_return - 0.5 * volatility**2) * dt + volatility * np.sqrt(dt) * np.random.normal()
-            ) - 1
+            monthly_return = np.exp((mu - 0.5 * sigma**2) * dt + sigma * np.sqrt(dt) * np.random.normal()) - 1
             portfolio_value += monthly_investment
             portfolio_value *= (1 + monthly_return)
         results.append(portfolio_value)
     return results
 
 # Streamlit app
-st.title("Investment Portfolio Decision Support System")
+st.title("Optimized Investment Portfolio Decision Support System")
 
 # Load data
 file_path = 'financial_data_last_year.csv'  # Ensure this matches your uploaded file
@@ -102,14 +100,18 @@ if data is not None:
 
         stock_picks = sorted(
             stock_candidates,
-            key=lambda x: calculate_utility(x[1], weights, risk_tolerance),
+            key=lambda x: x[1]["mean_return"] - 0.5 * x[1]["volatility"],
             reverse=True
         )[:4]
         bond_picks = sorted(
             bond_candidates,
-            key=lambda x: calculate_utility(x[1], weights, risk_tolerance),
+            key=lambda x: x[1]["mean_return"] - 0.2 * x[1]["volatility"],
             reverse=True
         )[:3]
+
+        # Calculate portfolio metrics
+        selected_assets = [item[1] for item in stock_picks + bond_picks]
+        portfolio_mu, portfolio_sigma = calculate_portfolio_metrics(selected_assets)
 
         # Display selected assets
         st.subheader("Selected Investments")
@@ -119,31 +121,23 @@ if data is not None:
         # Monte Carlo simulation
         st.subheader("Monte Carlo Simulation for Portfolio")
         progress = st.progress(0)
-        portfolio_simulations = []
-        for i, (ticker, metric) in enumerate(stock_picks + bond_picks):
-            simulations = monte_carlo_simulation_gbm(
-                metric["mean_return"],
-                metric["volatility"],
-                monthly_investment / len(stock_picks + bond_picks),
-                horizon,
-            )
-            portfolio_simulations.append(simulations)
-            progress.progress(int((i + 1) / len(stock_picks + bond_picks) * 100))
-            time.sleep(0.1)
+        simulations = monte_carlo_simulation_gbm(
+            portfolio_mu, portfolio_sigma, monthly_investment, horizon
+        )
+        progress.progress(100)
 
         # Aggregate results
-        total_simulations = [sum(sim) for sim in zip(*portfolio_simulations)]
         total_invested = monthly_investment * 12 * horizon
 
         st.write(f"Total Amount Invested Over {horizon} Years: ${total_invested:,.2f}")
         st.write(f"Simulated Portfolio Value after {horizon} years:")
-        st.write(f"Mean: ${np.mean(total_simulations):,.2f}")
-        st.write(f"5th Percentile: ${np.percentile(total_simulations, 5):,.2f}")
-        st.write(f"95th Percentile: ${np.percentile(total_simulations, 95):,.2f}")
+        st.write(f"Mean: ${np.mean(simulations):,.2f}")
+        st.write(f"5th Percentile: ${np.percentile(simulations, 5):,.2f}")
+        st.write(f"95th Percentile: ${np.percentile(simulations, 95):,.2f}")
 
         # Plot results
         fig, ax = plt.subplots()
-        ax.hist(total_simulations, bins=50, alpha=0.7)
+        ax.hist(simulations, bins=50, alpha=0.7)
         ax.set_title("Monte Carlo Simulation Results")
         ax.set_xlabel("Portfolio Value ($)")
         ax.set_ylabel("Frequency")
