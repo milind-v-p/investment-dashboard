@@ -29,6 +29,23 @@ def extract_metrics(data, tickers):
             st.warning(f"Data for {ticker} is missing. Skipping.")
     return metrics
 
+# Calculate utility scores
+def calculate_utility_scores(metrics, risk_tolerance):
+    utility_scores = {}
+    for ticker, metric in metrics.items():
+        mean_return = metric["mean_return"]
+        volatility = metric["volatility"]
+
+        if risk_tolerance == "Low":
+            score = mean_return / (1 + volatility)
+        elif risk_tolerance == "Moderate":
+            score = mean_return - 0.5 * volatility
+        else:  # High risk tolerance
+            score = mean_return
+
+        utility_scores[ticker] = score
+    return utility_scores
+
 # Utility functions
 def calculate_portfolio_metrics(selected_assets, weights):
     mean_returns = [asset["mean_return"] for asset in selected_assets]
@@ -126,9 +143,13 @@ if data is not None:
     if not metrics:
         st.error("No valid metrics available for analysis. Check your dataset.")
     else:
-        # Visualize all stocks and bonds
-        st.subheader("All Available Investments")
+        # Calculate utility scores for all investments
+        utility_scores = calculate_utility_scores(metrics, risk_tolerance)
         all_investments = pd.DataFrame.from_dict(metrics, orient='index')
+        all_investments['utility_score'] = all_investments.index.map(utility_scores)
+
+        # Visualize all stocks and bonds with utility scores
+        st.subheader("All Available Investments with Utility Scores")
         st.dataframe(all_investments)
 
         # Optimize portfolio
