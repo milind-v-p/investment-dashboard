@@ -59,13 +59,13 @@ def optimize_portfolio(metrics, risk_tolerance):
 
     if risk_tolerance == "Low":
         stock_picks = stocks[:20]  # Select 20 stocks with lowest volatility
-        bond_picks = bonds[:5]  # Select 5 bonds with lowest volatility
+        bond_picks = bonds[:3]  # Select 3 bonds with lowest volatility
     elif risk_tolerance == "Moderate":
         stock_picks = stocks[10:25]  # Select middle 15 stocks
-        bond_picks = bonds[5:15]  # Select middle 10 bonds
+        bond_picks = bonds[5:8]  # Select 3 bonds from the middle range
     else:  # High risk tolerance
         stock_picks = stocks[-15:]  # Select top 15 stocks by volatility
-        bond_picks = bonds[-5:]  # Select top 5 bonds by volatility
+        bond_picks = bonds[-3:]  # Select top 3 bonds by volatility
 
     # From selected stocks, choose top 5 based on Sharpe ratio
     top_stock_picks = sorted(stock_picks, key=lambda x: x[1]["sharpe_ratio"], reverse=True)[:5]
@@ -126,6 +126,11 @@ if data is not None:
     if not metrics:
         st.error("No valid metrics available for analysis. Check your dataset.")
     else:
+        # Visualize all stocks and bonds
+        st.subheader("All Available Investments")
+        all_investments = pd.DataFrame.from_dict(metrics, orient='index')
+        st.dataframe(all_investments)
+
         # Optimize portfolio
         stock_picks, bond_picks = optimize_portfolio(metrics, risk_tolerance)
 
@@ -136,8 +141,12 @@ if data is not None:
 
         # Display selected assets
         st.subheader("Selected Investments")
-        st.write(f"**Stocks:** {', '.join([stock[0] for stock in stock_picks])}")
-        st.write(f"**Bonds:** {', '.join([bond[0] for bond in bond_picks])}")
+        selected_stocks = pd.DataFrame(stock_picks, columns=["Ticker", "Metrics"])
+        selected_bonds = pd.DataFrame(bond_picks, columns=["Ticker", "Metrics"])
+        st.write("**Selected Stocks:**")
+        st.dataframe(selected_stocks)
+        st.write("**Selected Bonds:**")
+        st.dataframe(selected_bonds)
 
         # Display portfolio metrics
         st.subheader("Portfolio Metrics")
