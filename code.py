@@ -178,7 +178,7 @@ if data is not None:
         # Display portfolio metrics
         st.subheader("Portfolio Metrics")
         st.write(f"**Portfolio Mean (mu) (Monthly):** {portfolio_mu:.6f}")
-        st.write(f"**Portfolio Volatility (sigma) (Monthly):** {portfolio_sigma:.6
+        st.write(f"**Portfolio Volatility (sigma) (Monthly):** {portfolio_sigma:.6f}")
 
         # Monte Carlo simulation
         st.subheader("Monte Carlo Simulation for Portfolio")
