@@ -23,17 +23,18 @@ def extract_metrics(data, tickers):
             metrics[ticker] = {
                 "mean_return": mean_return,
                 "volatility": volatility,
+                "sharpe_ratio": mean_return / volatility if volatility > 0 else 0,
             }
         except KeyError:
             st.warning(f"Data for {ticker} is missing. Skipping.")
     return metrics
 
 # Utility functions
-def calculate_portfolio_metrics(selected_assets):
+def calculate_portfolio_metrics(selected_assets, weights):
     mean_returns = [asset["mean_return"] for asset in selected_assets]
     volatilities = [asset["volatility"]**2 for asset in selected_assets]
-    portfolio_mean = np.mean(mean_returns)
-    portfolio_volatility = np.sqrt(np.mean(volatilities))
+    portfolio_mean = np.dot(weights, mean_returns)
+    portfolio_volatility = np.sqrt(np.dot(weights, volatilities))
     return portfolio_mean, portfolio_volatility
 
 # Monte Carlo Simulation using Geometric Brownian Motion (GBM)
@@ -64,7 +65,9 @@ def optimize_portfolio(metrics, risk_tolerance):
         stock_picks = stocks[-15:]  # Select top 15 stocks by volatility
         bond_picks = bonds[-5:]  # Select top 5 bonds by volatility
 
-    return stock_picks, bond_picks
+    # From selected stocks, choose top 5 based on Sharpe ratio
+    top_stock_picks = sorted(stock_picks, key=lambda x: x[1]["sharpe_ratio"], reverse=True)[:5]
+    return top_stock_picks, bond_picks
 
 # Streamlit app
 st.title("Optimized Investment Portfolio Decision Support System")
@@ -95,12 +98,16 @@ if data is not None:
 
     risk_tolerance = st.selectbox("Risk Tolerance", ["Low", "Moderate", "High"])
 
-    # Assign weights dynamically based on risk tolerance
-    weights = {
-        "return": 0.6 if risk_tolerance == "High" else 0.4,
-        "risk": 0.3 if risk_tolerance == "Moderate" else 0.2,
-        "horizon": 0.1 if risk_tolerance == "Low" else 0.3,
-    }
+    # Adjust stock-bond allocation based on risk tolerance
+    if risk_tolerance == "Low":
+        stock_weight = 0.6
+        bond_weight = 0.4
+    elif risk_tolerance == "Moderate":
+        stock_weight = 0.7
+        bond_weight = 0.3
+    else:
+        stock_weight = 0.8
+        bond_weight = 0.2
 
     # Extract tickers dynamically from the dataset
     tickers = list(set([col.split(".")[0] for col in data.columns if "." in col]))
@@ -116,12 +123,18 @@ if data is not None:
 
         # Calculate portfolio metrics
         selected_assets = [item[1] for item in stock_picks + bond_picks]
-        portfolio_mu, portfolio_sigma = calculate_portfolio_metrics(selected_assets)
+        weights = ([stock_weight / len(stock_picks)] * len(stock_picks)) + ([bond_weight / len(bond_picks)] * len(bond_picks))
+        portfolio_mu, portfolio_sigma = calculate_portfolio_metrics(selected_assets, weights)
 
         # Display selected assets
         st.subheader("Selected Investments")
         st.write(f"**Stocks:** {', '.join([stock[0] for stock in stock_picks])}")
         st.write(f"**Bonds:** {', '.join([bond[0] for bond in bond_picks])}")
+
+        # Display portfolio metrics
+        st.subheader("Portfolio Metrics")
+        st.write(f"**Portfolio Mean (mu):** {portfolio_mu:.6f}")
+        st.write(f"**Portfolio Volatility (sigma):** {portfolio_sigma:.6f}")
 
         # Monte Carlo simulation
         st.subheader("Monte Carlo Simulation for Portfolio")
@@ -151,5 +164,5 @@ if data is not None:
         # Display portfolio allocation dynamically
         st.subheader("Portfolio Allocation")
         total_allocation = len(stock_picks) + len(bond_picks)
-        st.write(f"**Stocks Allocation (%):** {len(stock_picks) / total_allocation * 100:.2f}%")
-        st.write(f"**Bonds Allocation (%):** {len(bond_picks) / total_allocation * 100:.2f}%")
+        st.write(f"**Stocks Allocation (%):** {stock_weight * 100:.2f}%")
+        st.write(f"**Bonds Allocation (%):** {bond_weight * 100:.2f}%")
