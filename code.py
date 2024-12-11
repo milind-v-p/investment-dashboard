@@ -49,6 +49,23 @@ def monte_carlo_simulation_gbm(mu, sigma, monthly_investment, time_horizon, num_
         results.append(portfolio_value)
     return results
 
+# Optimize portfolio allocation based on risk tolerance
+def optimize_portfolio(metrics, risk_tolerance):
+    stocks = sorted(metrics.items(), key=lambda x: x[1]["volatility"])
+    bonds = sorted(metrics.items(), key=lambda x: x[1]["volatility"])
+
+    if risk_tolerance == "Low":
+        stock_picks = stocks[:20]  # Select 20 stocks with lowest volatility
+        bond_picks = bonds[:5]  # Select 5 bonds with lowest volatility
+    elif risk_tolerance == "Moderate":
+        stock_picks = stocks[10:25]  # Select middle 15 stocks
+        bond_picks = bonds[5:15]  # Select middle 10 bonds
+    else:  # High risk tolerance
+        stock_picks = stocks[-15:]  # Select top 15 stocks by volatility
+        bond_picks = bonds[-5:]  # Select top 5 bonds by volatility
+
+    return stock_picks, bond_picks
+
 # Streamlit app
 st.title("Optimized Investment Portfolio Decision Support System")
 
@@ -94,20 +111,8 @@ if data is not None:
     if not metrics:
         st.error("No valid metrics available for analysis. Check your dataset.")
     else:
-        # Stock and bond selection based on utility scores
-        stock_candidates = [item for item in metrics.items() if item[0] not in ["TLT", "BND", "IEF"]]
-        bond_candidates = [item for item in metrics.items() if item[0] in ["TLT", "BND", "IEF"]]
-
-        stock_picks = sorted(
-            stock_candidates,
-            key=lambda x: x[1]["mean_return"] - 0.5 * x[1]["volatility"],
-            reverse=True
-        )[:4]
-        bond_picks = sorted(
-            bond_candidates,
-            key=lambda x: x[1]["mean_return"] - 0.2 * x[1]["volatility"],
-            reverse=True
-        )[:3]
+        # Optimize portfolio
+        stock_picks, bond_picks = optimize_portfolio(metrics, risk_tolerance)
 
         # Calculate portfolio metrics
         selected_assets = [item[1] for item in stock_picks + bond_picks]
@@ -142,3 +147,9 @@ if data is not None:
         ax.set_xlabel("Portfolio Value ($)")
         ax.set_ylabel("Frequency")
         st.pyplot(fig)
+
+        # Display portfolio allocation dynamically
+        st.subheader("Portfolio Allocation")
+        total_allocation = len(stock_picks) + len(bond_picks)
+        st.write(f"**Stocks Allocation (%):** {len(stock_picks) / total_allocation * 100:.2f}%")
+        st.write(f"**Bonds Allocation (%):** {len(bond_picks) / total_allocation * 100:.2f}%")
