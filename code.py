@@ -45,13 +45,15 @@ def horizon_utility(horizon, weight):
     return horizon * weight
 
 # Monte Carlo Simulation
-def monte_carlo_simulation(mean_return, volatility, initial_investment, time_horizon, num_simulations=1000):
+def monte_carlo_simulation(mean_return, volatility, monthly_investment, time_horizon, num_simulations=1000):
     results = []
     for _ in range(num_simulations):
-        annual_returns = np.random.normal(mean_return, volatility, time_horizon)
-        portfolio_value = initial_investment
-        for annual_return in annual_returns:
-            portfolio_value *= (1 + annual_return)
+        portfolio_value = 0
+        annual_returns = np.random.normal(mean_return, volatility * 1.5 if volatility > 0 and risk_tolerance == "High" else (volatility * 0.5 if risk_tolerance == "Low" else volatility), time_horizon)
+        for year in range(time_horizon):
+            for month in range(12):
+                portfolio_value += monthly_investment
+                portfolio_value *= (1 + (annual_returns[year] / 12))
         results.append(portfolio_value)
     return results
 
@@ -69,7 +71,7 @@ except FileNotFoundError as e:
 if data is not None:
     # User inputs
     income = st.number_input("Enter your monthly income ($)", min_value=0.0, step=100.0)
-    amount = st.number_input("Amount willing to invest ($)", min_value=0.0, step=100.0)
+    monthly_investment = st.number_input("Amount willing to invest monthly ($)", min_value=0.0, step=100.0)
     age = st.slider("Enter your age", 18, 100)
     horizon = st.slider("Investment horizon (years)", 1, 50)
     risk_tolerance = st.selectbox("Risk Tolerance", ["Low", "Moderate", "High"])
@@ -90,45 +92,42 @@ if data is not None:
     if not metrics:
         st.error("No valid metrics available for analysis. Check your dataset.")
     else:
-        # Calculate utility scores
-        recommendations = []
-        for ticker, metric in metrics.items():
-            r_utility = return_utility(metric["mean_return"], weights["return"])
-            s_utility = risk_utility(metric["volatility"], weights["risk"], risk_tolerance)
-            h_utility = horizon_utility(horizon, weights["horizon"])
-            total_score = r_utility + s_utility + h_utility
-            recommendations.append({"ticker": ticker, "score": total_score})
+        # Filter based on risk tolerance
+        if risk_tolerance == "High":
+            selected_tickers = sorted(metrics.items(), key=lambda x: x[1]['mean_return'], reverse=True)[:3]
+        elif risk_tolerance == "Moderate":
+            selected_tickers = sorted(metrics.items(), key=lambda x: x[1]['volatility'])[:3]
+        else:  # Low risk
+            selected_tickers = sorted(metrics.items(), key=lambda x: x[1]['volatility'])[:2]
 
-        # Sort recommendations
-        sorted_recommendations = sorted(recommendations, key=lambda x: x["score"], reverse=True)
+        stock_picks = [ticker for ticker, _ in selected_tickers[:3]]
+        bond_picks = [ticker for ticker, _ in selected_tickers[-2:]]
 
         # Display top recommendations
         st.subheader("Top Recommendations")
-        st.write("**Top 3 Investments:**")
-        for rec in sorted_recommendations[:3]:
-            st.write(f"- {rec['ticker']} (Utility Score: {rec['score']:.2f})")
+        st.write(f"**Selected Stocks:** {', '.join(stock_picks)}")
+        st.write(f"**Selected Bonds:** {', '.join(bond_picks)}")
 
-        # Monte Carlo simulation for the top recommendation
-        if sorted_recommendations:
-            top_pick = sorted_recommendations[0]
-            st.subheader(f"Monte Carlo Simulation for {top_pick['ticker']}")
-            simulations = monte_carlo_simulation(
-                metrics[top_pick["ticker"]]["mean_return"],
-                metrics[top_pick["ticker"]]["volatility"],
-                amount,
+        # Monte Carlo simulation for the portfolio
+        st.subheader("Monte Carlo Simulation for Portfolio")
+        total_simulations = []
+        for ticker in stock_picks + bond_picks:
+            total_simulations.extend(monte_carlo_simulation(
+                metrics[ticker]["mean_return"],
+                metrics[ticker]["volatility"],
+                monthly_investment / len(stock_picks + bond_picks),
                 horizon,
-            )
-            st.write(f"Simulated Portfolio Value after {horizon} years:")
-            st.write(f"Mean: ${np.mean(simulations):,.2f}")
-            st.write(f"5th Percentile: ${np.percentile(simulations, 5):,.2f}")
-            st.write(f"95th Percentile: ${np.percentile(simulations, 95):,.2f}")
+            ))
 
-            # Plot simulation results
-            fig, ax = plt.subplots()
-            ax.hist(simulations, bins=50, alpha=0.7)
-            ax.set_title("Monte Carlo Simulation Results")
-            ax.set_xlabel("Portfolio Value ($)")
-            ax.set_ylabel("Frequency")
-            st.pyplot(fig)
-        else:
-            st.warning("No valid recommendations available.")
+        st.write(f"Simulated Portfolio Value after {horizon} years:")
+        st.write(f"Mean: ${np.mean(total_simulations):,.2f}")
+        st.write(f"5th Percentile: ${np.percentile(total_simulations, 5):,.2f}")
+        st.write(f"95th Percentile: ${np.percentile(total_simulations, 95):,.2f}")
+
+        # Plot simulation results
+        fig, ax = plt.subplots()
+        ax.hist(total_simulations, bins=50, alpha=0.7)
+        ax.set_title("Monte Carlo Simulation Results")
+        ax.set_xlabel("Portfolio Value ($)")
+        ax.set_ylabel("Frequency")
+        st.pyplot(fig)
