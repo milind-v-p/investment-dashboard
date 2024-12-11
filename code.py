@@ -45,15 +45,16 @@ def horizon_utility(horizon, weight, preference):
     return horizon * weight * factor
 
 # Monte Carlo Simulation
+# Simulate each monthly investment separately and aggregate results
 def monte_carlo_simulation(mean_return, volatility, monthly_investment, time_horizon, num_simulations=1000):
     results = []
     for _ in range(num_simulations):
         portfolio_value = 0
-        for year in range(time_horizon):
+        for month in range(time_horizon * 12):
             annual_return = np.random.normal(mean_return, volatility)
-            for month in range(12):
-                portfolio_value += monthly_investment
-                portfolio_value *= (1 + (annual_return / 12))
+            monthly_return = annual_return / 12
+            portfolio_value += monthly_investment
+            portfolio_value *= (1 + monthly_return)
         results.append(portfolio_value)
     return results
 
@@ -118,21 +119,22 @@ if data is not None:
 
         # Monte Carlo simulation for the portfolio
         st.subheader("Monte Carlo Simulation for Portfolio")
-        total_simulations = []
         progress = st.progress(0)
-        total_invested = 0
-
+        portfolio_simulations = []
         for i, (ticker, metric) in enumerate(stock_picks + bond_picks):
-            progress.progress(int((i + 1) / len(stock_picks + bond_picks) * 100))
             simulations = monte_carlo_simulation(
                 metric["mean_return"],
                 metric["volatility"],
                 monthly_investment / len(stock_picks + bond_picks),
                 horizon,
             )
-            total_simulations.extend(simulations)
-            total_invested += monthly_investment * 12 * horizon / len(stock_picks + bond_picks)
+            portfolio_simulations.append(simulations)
+            progress.progress(int((i + 1) / len(stock_picks + bond_picks) * 100))
             time.sleep(0.1)  # Simulate computation delay
+
+        # Aggregate results across all simulations
+        total_simulations = [sum(sim) for sim in zip(*portfolio_simulations)]
+        total_invested = monthly_investment * 12 * horizon
 
         st.write(f"Total Amount Invested Over {horizon} Years: ${total_invested:,.2f}")
         st.write(f"Simulated Portfolio Value after {horizon} years:")
