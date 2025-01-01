@@ -12,6 +12,15 @@ This project is a **Streamlit-based application** designed to help users optimiz
 1. Clone the repository:
    ```bash
    git clone https://github.com/milind-v-p/investment-dashboard.git
+2. Install dependencies:
+   ```bash
+   pip install streamlit pandas numpy matplotlib
+4. Run code.py:
+   ```bash
+   python code.py
+5. Open Browser and put the following website in:
+    ```bash
+    http://localhost:8501
 
 ## Improvements for Future
 - Incorporate live data from APIs for real-time insights.
